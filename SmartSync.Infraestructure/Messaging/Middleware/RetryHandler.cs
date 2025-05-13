@@ -1,47 +1,31 @@
-﻿using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System;
 using System.Threading.Tasks;
 
 namespace SmartSync.Infraestructure.Messaging.Middleware
 {
     public class RetryHandler
     {
-        private readonly ILogger<RetryHandler> _logger;
+        private const int MaxRetries = 3;
 
-        public RetryHandler(ILogger<RetryHandler> logger)
+        public async Task ExecuteWithRetryAsync(Func<Task> action)
         {
-            _logger = logger;
-        }
+            int attempt = 0;
 
-        public async Task ExecuteWithRetry(Func<Task> action, int maxRetries = 3)
-        {
-            int retryCount = 0;
-
-            while (retryCount < maxRetries)
+            while (attempt < MaxRetries)
             {
                 try
                 {
+                    attempt++;
                     await action();
                     return;
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (attempt < MaxRetries)
                 {
-                    retryCount++;
-                    _logger.LogWarning($"Tentativa {retryCount} falhou: {ex.Message}");
-
-                    if (retryCount >= maxRetries)
-                    {
-                        _logger.LogError(ex, "Erro após número máximo de tentativas.");
-                        throw;
-                    }
-
-                    await Task.Delay(2000);
+                    Console.WriteLine($"Tentativa {attempt} falhou. Retentando... Erro: {ex.Message}");
                 }
             }
+
+            throw new InvalidOperationException("Número máximo de tentativas atingido.");
         }
     }
-
 }

@@ -1,24 +1,18 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using SmartSync.Infraestructure.Logging.Interfaces;
+using System;
 
-namespace SmartSync.Infraestructure.Logging
+namespace SmartSync.Infraestructure.Logging.Providers
 {
     public class MessageLogger : IMessageLogger
     {
-        private readonly ILogger<MessageLogger> _logger;
-
-        public MessageLogger(ILogger<MessageLogger> logger)
-        {
-            _logger = logger;
-        }
-
         public void LogInfo(string message)
         {
-            _logger.LogInformation("[RabbitMQ] " + message);
+            Console.WriteLine($"INFO: {message}");
         }
 
         public void LogError(string message, Exception ex)
         {
-            _logger.LogError(ex, "[RabbitMQ] " + message);
+            Console.WriteLine($"ERROR: {message}\n{ex}");
         }
     }
 }

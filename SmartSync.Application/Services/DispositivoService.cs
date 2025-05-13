@@ -1,7 +1,7 @@
 ﻿using SmartSync.Application.Interfaces;
 using SmartSync.Domain.Entities;
 using SmartSync.Domain.Events;
-using SmartSync.Infraestructure.Persistence.Repositories;
+using SmartSync.Infraestructure.Persistence.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;

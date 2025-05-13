@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SmartSync.Infraestructure.Persistence.Repositories
+namespace SmartSync.Infraestructure.Persistence.Interfaces
 {
     public interface IBaseRepository<T> where T : BaseModel
     {

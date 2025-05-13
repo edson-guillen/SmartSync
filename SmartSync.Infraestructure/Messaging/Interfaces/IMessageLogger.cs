@@ -1,4 +1,4 @@
-﻿namespace SmartSync.Infraestructure.Logging
+﻿namespace SmartSync.Infraestructure.Logging.Interfaces
 {
     public interface IMessageLogger
     {

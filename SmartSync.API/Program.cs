@@ -1,8 +1,9 @@
 using RabbitMQ.Client;
-using SmartSync.Infraestructure.Logging;
-using SmartSync.Infraestructure.Messaging;
+using SmartSync.Infraestructure.Logging.Interfaces;
+using SmartSync.Infraestructure.Logging.Providers;
 using SmartSync.Infraestructure.Messaging.Config;
 using SmartSync.Infraestructure.Messaging.Consumers;
+using SmartSync.Infraestructure.Messaging.Handler;
 using SmartSync.Infraestructure.Messaging.Interfaces;
 using SmartSync.Infraestructure.Messaging.Middleware;
 using SmartSync.Infraestructure.Messaging.Publishers;
@@ -16,43 +17,83 @@ namespace SmartSync.API
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
+            //// Add services to the container.
+            //builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMq"));
 
-            builder.Services.Configure<RabbitMqSettings>(builder.Configuration.GetSection("RabbitMq"));
-            builder.Services.AddSingleton<IEventBus, EventBusRabbitMq>();
-            builder.Services.AddHostedService<AcenderLuzesComodoConsumer>();
-            builder.Services.AddSingleton<RetryHandler>();
-            builder.Services.AddScoped<IMessageLogger, MessageLogger>();
+            //// Register RabbitMQ Connection and Channel
+            //builder.Services.AddSingleton(sp =>
+            //{
+            //    var configuration = sp.GetRequiredService<IConfiguration>();
+            //    var rabbitMqSettings = configuration.GetSection("RabbitMq").Get<RabbitMqSettings>();
+            //    var factory = new ConnectionFactory
+            //    {
+            //        HostName = rabbitMqSettings.HostName,
+            //        UserName = rabbitMqSettings.UserName,
+            //        Password = rabbitMqSettings.Password,
+            //        VirtualHost = rabbitMqSettings.VirtualHost,
+            //        DispatchConsumersAsync = true
+            //    };
+            //    var connection = factory.CreateConnection();
+            //    return connection.CreateModel();
+            //});
 
+            //// IMPORTANTE: Todos os serviços que interagem com o RabbitMQ devem ser Singleton
+            //// para garantir que eles usem a mesma instância do canal
 
-            var factory = new ConnectionFactory
-            {
-                Uri = new Uri("amqps://jzbrpolr:sEJrOHF_O46SJenrAhxBvKbL-IZwvNPP@jackal.rmq.cloudamqp.com/jzbrpolr")
-            };
+            //// Register Logging (sempre injetar como Singleton)
+            //builder.Services.AddSingleton<IMessageLogger, MessageLogger>();
 
-            using var connection = factory.CreateConnection();
-            using var channel = connection.CreateModel();
+            //// Register Queue Configuration Service
+            //builder.Services.AddSingleton<QueueConfigurationService>();
 
-            var configService = new QueueConfigurationService(channel);
-            configService.DeclareQueueWithDLQ(new QueueConfiguration
-            {
-                QueueName = "smart.sync.acender.comodo",
-                ExchangeName = "smart.sync.acender.fanout",
-                DeadLetterExchange = "smart.sync.acender.fanout.dlx",
-                MessageTtl = 30000 // 30 segundos
-            });
+            //// Register RetryHandler
+            //builder.Services.AddSingleton<RetryHandler>();
 
+            //// Register Message Publisher
+            //builder.Services.AddSingleton<MessagePublisher>();
 
+            //// Register Event Bus
+            //builder.Services.AddSingleton<IEventBus, EventBusRabbitMq>();
+
+            //// IMPORTANTE: Ordem de inicialização dos serviços
+            //// 1. QueueInitializer: deve ser iniciado primeiro para criar todas as filas
+            //// 2. Consumidores: devem ser iniciados depois para consumir mensagens das filas existentes
+
+            //// Initialize Queues at Startup - PRIMEIRO SERVIÇO A SER INICIALIZADO
+            //builder.Services.AddSingleton<IHostedService, QueueInitializer>();
+
+            //// Register Consumers DEPOIS do QueueInitializer
+            //builder.Services.AddSingleton<AcenderLuzesComodoConsumer>();
+            //builder.Services.AddHostedService(sp => sp.GetRequiredService<AcenderLuzesComodoConsumer>());
+
+            //// Register Handlers como Singleton também para evitar problemas com DI
+            //builder.Services.AddSingleton<AcenderLuzesComodoEventHandler>();
+
+            ////var factory = new ConnectionFactory
+            ////{
+            ////    Uri = new Uri(builder.Configuration.GetConnectionString("RabbitMq"))
+            ////};
+
+            ////using var connection = factory.CreateConnection();
+            ////using var channel = connection.CreateModel();
+
+            ////var configService = new QueueConfigurationService(channel);
+            ////configService.DeclareQueueWithDLQ(new QueueConfiguration
+            ////{
+            ////    QueueName = "smart.sync.acender.comodo",
+            ////    ExchangeName = "smart.sync.acender.fanout",
+            ////    DeadLetterExchange = "smart.sync.acender.fanout.dlx",
+            ////    MessageTtl = 30000
+            ////});
+
+            // Configure Services
             builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
             var app = builder.Build();
 
-            QueueInitializer.RegisterQueues(app.Services);
-
-            // Configure the HTTP request pipeline.
+            // Configure Middleware
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -60,12 +101,8 @@ namespace SmartSync.API
             }
 
             app.UseHttpsRedirection();
-
             app.UseAuthorization();
-
-
             app.MapControllers();
-
             app.Run();
         }
     }

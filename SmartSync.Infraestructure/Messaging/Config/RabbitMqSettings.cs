@@ -14,7 +14,7 @@ namespace SmartSync.Infraestructure.Messaging.Config
         public string Password { get; set; }
         public string VirtualHost { get; set; }
         public string ExchangeName { get; set; } = "smartsync.fanout";
-        public string DeadLetterExchange { get; set; } = "smartsync.dlx";
+        public string DeadLetterExchange { get; set; } = "smartsync.dlq";
         public string RetryExchange { get; set; } = "smartsync.retry";
     }
 }

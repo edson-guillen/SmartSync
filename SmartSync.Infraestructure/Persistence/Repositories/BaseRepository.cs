@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SmartSync.Domain.Entities;
 using SmartSync.Infraestructure.Persistence.Context;
+using SmartSync.Infraestructure.Persistence.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;

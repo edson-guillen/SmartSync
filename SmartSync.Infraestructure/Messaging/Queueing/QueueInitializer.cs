@@ -1,42 +1,101 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Configuration;
-using RabbitMQ.Client;
+using Microsoft.Extensions.Hosting;
+using SmartSync.Infraestructure.Logging.Interfaces;
 using SmartSync.Infraestructure.Messaging.Config;
+using SmartSync.Infraestructure.Messaging.Consumers;
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SmartSync.Infraestructure.Messaging.Queueing
 {
-    public static class QueueInitializer
+    public class QueueInitializer : IHostedService
     {
-        public static void RegisterQueues(IServiceProvider serviceProvider)
+        private readonly QueueConfigurationService _queueConfigurationService;
+        private readonly IMessageLogger _logger;
+        private readonly IServiceProvider _serviceProvider;
+
+        public QueueInitializer(
+            QueueConfigurationService queueConfigurationService,
+            IMessageLogger logger,
+            IServiceProvider serviceProvider)
         {
-            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+            _queueConfigurationService = queueConfigurationService ?? throw new ArgumentNullException(nameof(queueConfigurationService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        }
 
-            var rabbitMqUrl = configuration["RabbitMq:Host"];
-            if (string.IsNullOrWhiteSpace(rabbitMqUrl))
-                throw new Exception("RabbitMQ connection string not found in configuration.");
+        public async Task StartAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInfo("Inicializando filas RabbitMQ...");
 
-            var factory = new ConnectionFactory
+            try
             {
-                Uri = new Uri(rabbitMqUrl)
-            };
+                // Define constantes para evitar inconsistências de string
+                const string queueName = "smartsync.comodo.acender";
+                const string exchangeName = "smartsync.comodo.acender.fanout";
+                const string deadLetterExchange = "smartsync.comodo.acender.dlx";
+                const int messageTtl = 30000;
 
-            using var connection = factory.CreateConnection();
-            using var channel = connection.CreateModel();
+                // Configure your queues here
+                _queueConfigurationService.DeclareQueueWithDLQ(
+                    queueName: queueName,
+                    exchangeName: exchangeName,
+                    deadLetterExchange: deadLetterExchange,
+                    messageTtl: messageTtl);
 
-            var configService = new QueueConfigurationService(channel);
+                // Add more queue declarations as needed
 
-            // Registrar a fila de acender luzes (Fanout + DLQ + TTL)
-            configService.DeclareQueueWithDLQ(new QueueConfiguration
+                _logger.LogInfo("Filas RabbitMQ inicializadas com sucesso");
+
+                // Encontrar todas as instâncias de consumidores que precisam ser notificadas
+                var consumers = GetConsumers();
+                foreach (var consumer in consumers)
+                {
+                    // Chamada do método de notificação para cada consumidor encontrado
+                    consumer?.NotifyQueuesInitialized();
+                    _logger.LogInfo($"Consumidor {consumer?.GetType().Name} notificado sobre a inicialização das filas");
+                }
+            }
+            catch (Exception ex)
             {
-                QueueName = "smart.sync.acender.comodo",
-                ExchangeName = "smart.sync.acender.fanout",
-                MessageTtl = 30000, // 30 segundos
-                Durable = true,
-                AutoDelete = false,
-                Exclusive = false
-            });
+                _logger.LogError("Falha ao inicializar filas RabbitMQ", ex);
+                throw; // Rethrow to prevent application startup
+            }
 
-            // Você pode registrar outras filas aqui futuramente...
+            // Aguarda um momento para garantir que as filas foram criadas antes dos consumidores serem iniciados
+            await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+        }
+
+        private IEnumerable<AcenderLuzesComodoConsumer> GetConsumers()
+        {
+            // Move the try-catch block outside of the iterator method to avoid the CS1626 error  
+            List<AcenderLuzesComodoConsumer> consumers = new List<AcenderLuzesComodoConsumer>();
+
+            try
+            {
+                // Tenta obter todos os consumidores registrados  
+                var hostedServices = _serviceProvider.GetServices<IHostedService>();
+                foreach (var service in hostedServices)
+                {
+                    if (service is AcenderLuzesComodoConsumer consumer)
+                    {
+                        consumers.Add(consumer);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Erro ao tentar obter consumidores", ex);
+            }
+
+            return consumers;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
         }
     }
 }

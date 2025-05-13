@@ -1,103 +1,116 @@
-﻿using System.Text.Json;
+﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using SmartSync.Domain.Events;
+using SmartSync.Infraestructure.Logging.Interfaces;
+using SmartSync.Infraestructure.Messaging.Middleware;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Hosting;
-using SmartSync.Infraestructure.Messaging.Config;
-using Microsoft.Extensions.DependencyInjection;
 using SmartSync.Infraestructure.Messaging.Handler;
-using SmartSync.Infraestructure.Messaging.Utils;
 
 namespace SmartSync.Infraestructure.Messaging.Consumers
 {
     public class AcenderLuzesComodoConsumer : BackgroundService
     {
-        private readonly ILogger<AcenderLuzesComodoConsumer> _logger;
         private readonly IServiceProvider _provider;
-        private readonly RabbitMqSettings _settings;
+        private readonly IMessageLogger _logger;
+        private readonly RetryHandler _retryHandler;
+        private readonly IModel _channel;
+        private const string QUEUE_NAME = "smartsync.comodo.acender";
+        private readonly SemaphoreSlim _initializationSemaphore = new SemaphoreSlim(0, 1);
 
         public AcenderLuzesComodoConsumer(
-            ILogger<AcenderLuzesComodoConsumer> logger,
-            IOptions<RabbitMqSettings> options,
-            IServiceProvider provider)
+            IServiceProvider provider,
+            IMessageLogger logger,
+            RetryHandler retryHandler,
+            IModel channel)
         {
-            _logger = logger;
             _provider = provider;
-            _settings = options.Value;
+            _logger = logger;
+            _retryHandler = retryHandler;
+            _channel = channel;
         }
 
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        /// <summary>
+        /// Este método deve ser chamado pelo QueueInitializer após a criação das filas
+        /// </summary>
+        public void NotifyQueuesInitialized()
         {
-            var factory = new ConnectionFactory
+            _initializationSemaphore.Release();
+        }
+
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            _logger.LogInfo($"Aguardando inicialização das filas antes de configurar o consumidor para '{QUEUE_NAME}'");
+
+            // Aguarda até 30 segundos pela inicialização das filas
+            // Caso o semáforo não seja liberado nesse tempo, continua mesmo assim
+            await _initializationSemaphore.WaitAsync(TimeSpan.FromSeconds(30), stoppingToken);
+
+            // Verifica se a fila existe antes de tentar consumir
+            try
             {
-                HostName = _settings.HostName,
-                UserName = _settings.UserName,
-                Password = _settings.Password,
-                VirtualHost = _settings.VirtualHost,
-                DispatchConsumersAsync = true
-            };
-
-            var connection = factory.CreateConnection();
-            var channel = connection.CreateModel();
-
-            channel.ExchangeDeclare(_settings.ExchangeName, ExchangeType.Fanout, durable: true);
-            channel.ExchangeDeclare(_settings.DeadLetterExchange, ExchangeType.Fanout, durable: true);
-
-            channel.QueueDeclare("smartsync.comodo.acender", durable: true, exclusive: false, autoDelete: false,
-                arguments: new Dictionary<string, object>
+                // Verifica se a fila existe
+                _channel.QueueDeclarePassive(QUEUE_NAME);
+                _logger.LogInfo($"Fila '{QUEUE_NAME}' encontrada, configurando consumidor");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"A fila '{QUEUE_NAME}' não foi encontrada. Certifique-se de que ela foi criada corretamente pelo QueueInitializer", ex);
+                // Tenta criar a fila se ela não existir
+                try
                 {
-                { "x-dead-letter-exchange", _settings.DeadLetterExchange }
-                });
+                    var arguments = new System.Collections.Generic.Dictionary<string, object>
+                    {
+                        { "x-dead-letter-exchange", "smartsync.comodo.acender.dlx" },
+                        { "x-message-ttl", 30000 }
+                    };
 
-            channel.QueueBind("smartsync.comodo.acender", _settings.ExchangeName, "");
+                    _channel.ExchangeDeclare("smartsync.comodo.acender.fanout", ExchangeType.Fanout, durable: true);
+                    _channel.ExchangeDeclare("smartsync.comodo.acender.dlx", ExchangeType.Fanout, durable: true);
+                    _channel.QueueDeclare(QUEUE_NAME, durable: true, exclusive: false, autoDelete: false, arguments);
+                    _channel.QueueBind(QUEUE_NAME, "smartsync.comodo.acender.fanout", "");
 
-            var consumer = new AsyncEventingBasicConsumer(channel);
+                    _logger.LogInfo($"Fila '{QUEUE_NAME}' criada com sucesso pelo consumidor");
+                }
+                catch (Exception createEx)
+                {
+                    _logger.LogError($"Falha ao criar a fila '{QUEUE_NAME}' no consumidor", createEx);
+                    throw;
+                }
+            }
+
+            // Configura o consumidor
+            var consumer = new AsyncEventingBasicConsumer(_channel);
             consumer.Received += async (sender, ea) =>
             {
                 try
                 {
-                    var json = Encoding.UTF8.GetString(ea.Body.ToArray());
-                    var evento = JsonSerializer.Deserialize<AcenderLuzesComodoEvent>(json);
+                    var message = Encoding.UTF8.GetString(ea.Body.ToArray());
+                    _logger.LogInfo($"Mensagem recebida: {message}");
+                    var evento = JsonSerializer.Deserialize<AcenderLuzesComodoEvent>(message);
 
-                    using var scope = _provider.CreateScope();
-                    var handler = scope.ServiceProvider.GetRequiredService<AcenderLuzesComodoEventHandler>();
-
-                    await handler.HandleAsync(evento!);
-
-                    channel.BasicAck(ea.DeliveryTag, false);
+                    await _retryHandler.ExecuteWithRetryAsync(async () =>
+                    {
+                        using var scope = _provider.CreateScope();
+                        var handler = scope.ServiceProvider.GetRequiredService<AcenderLuzesComodoEventHandler>();
+                        await handler.HandleAsync(evento!);
+                        _channel.BasicAck(ea.DeliveryTag, false);
+                    });
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "[Consumer] Erro ao processar mensagem");
-
-                    var retryCount = RetryPolicyHelper.GetRetryCount(ea.BasicProperties);
-                    if (retryCount < 5)
-                    {
-                        RetryPolicyHelper.AddRetryHeader(ea.BasicProperties, retryCount + 1);
-                        channel.BasicPublish(exchange: _settings.ExchangeName,
-                                             routingKey: "",
-                                             basicProperties: ea.BasicProperties,
-                                             body: ea.Body);
-                    }
-                    else
-                    {
-                        channel.BasicPublish(_settings.DeadLetterExchange, "", null, ea.Body);
-                    }
-
-                    channel.BasicNack(ea.DeliveryTag, false, false);
+                    _logger.LogError("Erro ao processar mensagem", ex);
+                    _channel.BasicNack(ea.DeliveryTag, false, false);
                 }
             };
 
-            channel.BasicConsume("smartsync.comodo.acender", false, consumer);
-
-            return Task.CompletedTask;
+            _channel.BasicConsume(QUEUE_NAME, false, consumer);
+            _logger.LogInfo($"Consumidor configurado para a fila '{QUEUE_NAME}'");
         }
     }
 }
