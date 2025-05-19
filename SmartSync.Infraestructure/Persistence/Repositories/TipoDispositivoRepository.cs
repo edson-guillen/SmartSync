@@ -9,8 +9,7 @@ using System.Threading.Tasks;
 
 namespace SmartSync.Infraestructure.Persistence.Repositories
 {
-    public class TipoDispositivoRepository : BaseRepository<TipoDispositivo>, ITipoDispositivoRepository
+    public class TipoDispositivoRepository(SmartSyncDbContext context) : BaseRepository<TipoDispositivo>(context), ITipoDispositivoRepository
     {
-        public TipoDispositivoRepository(SmartSyncDbContext context) : base(context) { }
     }
 }

@@ -4,7 +4,7 @@ using SmartSync.Domain.Entities;
 
 namespace SmartSync.API.Controllers
 {
-    public class ResidenciaController(IBaseService<Residencia> service) : BaseController<Residencia>(service)
+    public class ResidenciaController(IBaseService<Residencia> service, ILogger<Residencia> logger) : BaseController<Residencia>(service, logger)
     {
     }
 }

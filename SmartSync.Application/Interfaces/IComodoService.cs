@@ -9,6 +9,5 @@ namespace SmartSync.Application.Interfaces
 {
     public interface IComodoService : IBaseService<Comodo>
     {
-        Task AcenderLuzesAsync(Guid comodoId);
     }
 }

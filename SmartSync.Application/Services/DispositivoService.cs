@@ -1,6 +1,5 @@
 ﻿using SmartSync.Application.Interfaces;
 using SmartSync.Domain.Entities;
-using SmartSync.Domain.Events;
 using SmartSync.Infraestructure.Persistence.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -10,10 +9,7 @@ using System.Threading.Tasks;
 
 namespace SmartSync.Application.Services
 {
-    public class DispositivoService : BaseService<Dispositivo>, IDispositivoService
+    public class DispositivoService(IDispositivoRepository repository) : BaseService<Dispositivo>(repository), IDispositivoService
     {
-        public DispositivoService(IBaseRepository<Dispositivo> repository) : base(repository)
-        {
-        }
     }
 }

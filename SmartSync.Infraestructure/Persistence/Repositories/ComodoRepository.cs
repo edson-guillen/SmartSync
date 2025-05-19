@@ -9,8 +9,7 @@ using System.Threading.Tasks;
 
 namespace SmartSync.Infraestructure.Persistence.Repositories
 {
-    public class ComodoRepository : BaseRepository<Comodo>, IComodoRepository
+    public class ComodoRepository(SmartSyncDbContext context) : BaseRepository<Comodo>(context), IComodoRepository
     {
-        public ComodoRepository(SmartSyncDbContext context) : base(context) { }
     }
 }

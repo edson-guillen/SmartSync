@@ -1,6 +1,5 @@
 ﻿using SmartSync.Application.Interfaces;
 using SmartSync.Domain.Entities;
-using SmartSync.Domain.Events;
 using SmartSync.Infraestructure.Persistence.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -10,10 +9,7 @@ using System.Threading.Tasks;
 
 namespace SmartSync.Application.Services
 {
-    public class ResidenciaService : BaseService<Residencia>, IResidenciaService
+    public class ResidenciaService(IResidenciaRepository repository) : BaseService<Residencia>(repository), IResidenciaService
     {
-        public ResidenciaService(IBaseRepository<Residencia> repository) : base(repository)
-        {
-        }
     }
 }

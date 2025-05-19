@@ -9,8 +9,7 @@ using System.Threading.Tasks;
 
 namespace SmartSync.Infraestructure.Persistence.Repositories
 {
-    public class ResidenciaRepository : BaseRepository<Residencia>, IResidenciaRepository
+    public class ResidenciaRepository(SmartSyncDbContext context) : BaseRepository<Residencia>(context), IResidenciaRepository
     {
-        public ResidenciaRepository(SmartSyncDbContext context) : base(context) { }
     }
 }

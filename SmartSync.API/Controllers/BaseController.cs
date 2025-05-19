@@ -1,62 +1,102 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using SmartSync.Application.Interfaces;
 using SmartSync.Domain.Entities;
+using Microsoft.AspNetCore.OData.Query;
 
 namespace SmartSync.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class BaseController<T> : ControllerBase where T : BaseModel
+    public class BaseController<TModel>(IBaseService<TModel> service, ILogger logger) : Controller where TModel : BaseModel
     {
-        protected readonly IBaseService<T> _service;
+        protected readonly IBaseService<TModel> _service = service;
+        protected readonly ILogger _logger = logger;
 
-        public BaseController(IBaseService<T> service)
-        {
-            _service = service;
-        }
-
+        [EnableQuery(MaxExpansionDepth = 5)]
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<T>>> GetAll()
+        public virtual IActionResult Get()
         {
-            var entities = await _service.GetAllAsync();
-            return Ok(entities);
+            return TryExecute(() =>
+            {
+                return Ok(_service.Get());
+            });
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<T>> GetById(Guid id)
+        public virtual IActionResult GetById(Guid id)
         {
-            var entity = await _service.GetByIdAsync(id);
-            if (entity == null)
-                return NotFound();
-
-            return Ok(entity);
+            return TryExecute(() =>
+            {
+                return Ok(_service.Get(id).FirstOrDefault());
+            });
         }
 
         [HttpPost]
-        public async Task<ActionResult<T>> Create([FromBody] T entity)
+        public virtual async Task<IActionResult> Post([FromBody] TModel model)
         {
-            var created = await _service.CreateAsync(entity);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            return await TryExecuteAsync(async () =>
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                await _service.Insert(model);
+                return Ok(model);
+            });
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult<T>> Update(Guid id, [FromBody] T entity)
+        public virtual async Task<IActionResult> Put(Guid id, [FromBody] TModel model)
         {
-            var updated = await _service.UpdateAsync(id, entity);
-            if (updated == null)
-                return NotFound();
+            return await TryExecuteAsync(async () =>
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
 
-            return Ok(updated);
+                model.Id = id;
+                await _service.Update(model);
+                return Ok(model);
+            });
         }
 
         [HttpDelete("{id}")]
-        public async Task<ActionResult> Delete(Guid id)
+        public virtual async Task<IActionResult> Delete(Guid id)
         {
-            var deleted = await _service.DeleteAsync(id);
-            if (!deleted)
-                return NotFound();
+            return await TryExecuteAsync(async () =>
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
 
-            return NoContent();
+                await _service.Delete(id);
+                return Ok(id);
+            });
+        }
+
+        [NonAction]
+        protected virtual IActionResult TryExecute(Func<IActionResult> execute)
+        {
+            try
+            {
+                return execute();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, ex.Message, ex.InnerException);
+                return BadRequest(ex);
+            }
+        }
+
+        [NonAction]
+        protected virtual async Task<IActionResult> TryExecuteAsync(Func<Task<IActionResult>> execute)
+        {
+            try
+            {
+                return await execute();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, ex.Message, ex.InnerException);
+                return BadRequest(ex);
+            }
         }
     }
 }

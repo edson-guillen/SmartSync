@@ -4,17 +4,22 @@ using SmartSync.Infraestructure.Persistence.Context;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace SmartSync.Infraestructure.Persistence.Interfaces
 {
-    public interface IBaseRepository<T> where T : BaseModel
+    public interface IBaseRepository<TModel> where TModel : BaseModel
     {
-        Task<IEnumerable<T>> GetAllAsync();
-        Task<T> GetByIdAsync(Guid id);
-        Task<T> CreateAsync(T entity);
-        Task<T> UpdateAsync(T entity);
-        Task<bool> DeleteAsync(Guid id);
+        IQueryable<TModel> Get(Expression<Func<TModel, bool>>? predicate = null);
+
+        IQueryable<TModel> Get(Guid id);
+
+        Task<int> Insert(TModel model);
+
+        Task<int> Update(TModel model);
+
+        Task<int> Delete(Guid id);
     }
 }

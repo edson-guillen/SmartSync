@@ -1,58 +1,38 @@
-﻿using SmartSync.Application.Interfaces;
+﻿using System.Linq.Expressions;
 using SmartSync.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using SmartSync.Infraestructure.Persistence.Repositories;
 using SmartSync.Infraestructure.Persistence.Interfaces;
+using SmartSync.Application.Interfaces;
 
 namespace SmartSync.Application.Services
 {
-    public class BaseService<T> : IBaseService<T> where T : BaseModel
+    public class BaseService<TModel>(IBaseRepository<TModel> repository) : IBaseService<TModel> where TModel : BaseModel
     {
-        protected readonly IBaseRepository<T> _repository;
+        protected readonly IBaseRepository<TModel> _repostitory = repository;
 
-        public BaseService(IBaseRepository<T> repository)
+        public IQueryable<TModel> Get(Expression<Func<TModel, bool>>? predicate = null)
         {
-            _repository = repository;
+            return _repostitory.Get(predicate);
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync()
+        public IQueryable<TModel> Get(Guid id)
         {
-            return await _repository.GetAllAsync();
+            return _repostitory.Get(id);
         }
 
-        public async Task<T> GetByIdAsync(Guid id)
+        public virtual async Task<int> Insert(TModel model)
         {
-            return await _repository.GetByIdAsync(id);
+            return await _repostitory.Insert(model);
         }
 
-        public async Task<T> CreateAsync(T entity)
+        public virtual async Task<int> Update(TModel model)
         {
-            entity.Id = Guid.NewGuid();
-            entity.CreatedAt = DateTime.UtcNow;
-            return await _repository.CreateAsync(entity);
+            return await _repostitory.Update(model);
         }
 
-        public async Task<T> UpdateAsync(Guid id, T entity)
+        public virtual async Task<int> Delete(Guid id)
         {
-            var existingEntity = await _repository.GetByIdAsync(id);
-            if (existingEntity == null)
-                return null;
-
-            entity.Id = id;
-            //entity.UpdatedAt = DateTime.UtcNow;
-            return await _repository.UpdateAsync(entity);
-        }
-
-        public async Task<bool> DeleteAsync(Guid id)
-        {
-            var existingEntity = await _repository.GetByIdAsync(id);
-            if (existingEntity == null)
-                return false;
-
-            return await _repository.DeleteAsync(id);
+            return await _repostitory.Delete(id);
         }
     }
 }

@@ -10,8 +10,7 @@ using System.Threading.Tasks;
 
 namespace SmartSync.Infraestructure.Persistence.Repositories
 {
-    public class UsuarioRepository : BaseRepository<Usuario>, IUsuarioRepository
+    public class UsuarioRepository(SmartSyncDbContext context) : BaseRepository<Usuario>(context), IUsuarioRepository
     {
-        public UsuarioRepository(SmartSyncDbContext context) : base(context) { }
     }
 }

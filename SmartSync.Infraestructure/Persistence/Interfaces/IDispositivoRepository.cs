@@ -9,6 +9,5 @@ namespace SmartSync.Infraestructure.Persistence.Interfaces
 {
     public interface IDispositivoRepository : IBaseRepository<Dispositivo>
     {
-        Task<List<Dispositivo>> ObterDispositivosPorComodoIdAsync(Guid comodoId, string tipo);
     }
 }

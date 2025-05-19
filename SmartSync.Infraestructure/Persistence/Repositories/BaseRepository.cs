@@ -5,55 +5,67 @@ using SmartSync.Infraestructure.Persistence.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace SmartSync.Infraestructure.Persistence.Repositories
 {
-    public class BaseRepository<T> : IBaseRepository<T> where T : BaseModel
+    public class BaseRepository<TModel>(SmartSyncDbContext db) : IBaseRepository<TModel> where TModel : BaseModel
     {
-        protected readonly SmartSyncDbContext _context;
-        protected readonly DbSet<T> _dbSet;
+        protected readonly SmartSyncDbContext _db = db;
 
-        public BaseRepository(SmartSyncDbContext context)
+        public IQueryable<TModel> Get(Expression<Func<TModel, bool>>? predicate = null)
         {
-            _context = context;
-            _dbSet = context.Set<T>();
+            var query = _db.Set<TModel>().AsQueryable();
+            if (predicate != null) query = query.Where(predicate);
+            return query;
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync()
+        public IQueryable<TModel> Get(Guid id)
         {
-            return await _dbSet.AsNoTracking().ToListAsync();
+            return Get(p => p.Id.Equals(id))
+                .AsQueryable();
         }
 
-        public async Task<T> GetByIdAsync(Guid id)
+        public virtual async Task<int> Insert(TModel model)
         {
-            return await _dbSet.FindAsync(id);
+            try
+            {
+                await _db.AddAsync(model);
+                return await _db.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
-        public async Task<T> CreateAsync(T entity)
+        public virtual async Task<int> Update(TModel model)
         {
-            await _dbSet.AddAsync(entity);
-            await _context.SaveChangesAsync();
-            return entity;
+            try
+            {
+                _db.Update(model);
+                return await _db.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
-        public async Task<T> UpdateAsync(T entity)
+        public virtual async Task<int> Delete(Guid id)
         {
-            _dbSet.Update(entity);
-            await _context.SaveChangesAsync();
-            return entity;
-        }
-
-        public async Task<bool> DeleteAsync(Guid id)
-        {
-            var entity = await _dbSet.FindAsync(id);
-            if (entity == null)
-                return false;
-
-            _dbSet.Remove(entity);
-            await _context.SaveChangesAsync();
-            return true;
+            try
+            {
+                TModel model = Get(id).FirstOrDefault() ?? throw new Exception("Entity not found!");
+                _db.Entry(model).State = Microsoft.EntityFrameworkCore.EntityState.Deleted;
+                return await _db.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
     }
 }

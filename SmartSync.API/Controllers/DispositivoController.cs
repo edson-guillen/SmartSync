@@ -4,7 +4,7 @@ using SmartSync.Domain.Entities;
 
 namespace SmartSync.API.Controllers
 {
-    public class DispositivoController(IBaseService<Dispositivo> service) : BaseController<Dispositivo>(service)
+    public class DispositivoController(IBaseService<Dispositivo> service, ILogger<Dispositivo> logger) : BaseController<Dispositivo>(service, logger)
     {
     }
 }

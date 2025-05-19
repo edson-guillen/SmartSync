@@ -4,7 +4,7 @@ using SmartSync.Domain.Entities;
 
 namespace SmartSync.API.Controllers
 {
-    public class UsuarioController(IBaseService<Usuario> service) : BaseController<Usuario>(service)
+    public class UsuarioController(IBaseService<Usuario> service, ILogger<Usuario> logger) : BaseController<Usuario>(service,logger)
     {
     }
 }
