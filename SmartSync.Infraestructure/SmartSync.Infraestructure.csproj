@@ -28,7 +28,6 @@
 
   <ItemGroup>
     <Folder Include="Logging\" />
-    <Folder Include="Messaging\" />
   </ItemGroup>
 
 </Project>

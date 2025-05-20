@@ -5,7 +5,7 @@ using SmartSync.Domain.Entities;
 
 namespace SmartSync.API.Controllers
 {
-    public class ComodoController(IComodoService comodoService, ILogger<Comodo> logger) : BaseController<Comodo>(comodoService, logger)
+    public class ComodoController(IComodoService service, ILogger<Comodo> logger) : BaseController<Comodo>(service, logger)
     {
         //private readonly IComodoService _comodoService = comodoService;
 
