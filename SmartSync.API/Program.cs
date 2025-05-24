@@ -4,6 +4,11 @@ using Microsoft.AspNetCore.OData.NewtonsoftJson;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Serialization;
 using SmartSync.API.Extensions;
+using Microsoft.Extensions.Configuration; 
+using SmartSync.Infraestructure.Messaging.Interfaces;
+using SmartSync.Infraestructure.Messaging.Publisher;
+using SmartSync.Infraestructure.Messaging.Subscriber;
+using SmartSync.Infraestructure.Messaging;
 
 namespace SmartSync.API
 {
@@ -11,8 +16,6 @@ namespace SmartSync.API
     {
         public static void Main(string[] args)
         {
-#nullable disable
-
             var builder = WebApplication.CreateBuilder(args);
 
             builder.Services
@@ -59,20 +62,35 @@ namespace SmartSync.API
                 });
             });
 
+            // RabbitMQ - CloudAMQP
+            builder.Services.AddSingleton<RabbitMqOptions>(sp =>
+            {
+                var configuration = sp.GetRequiredService<IConfiguration>();
+                return new RabbitMqOptions
+                {
+                    ConnectionString = "amqps://jzbrpolr:sEJrOHF_O46SJenrAhxBvKbL-IZwvNPP@jackal.rmq.cloudamqp.com/jzbrpolr"
+                };
+            });
+            builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
+            builder.Services.AddSingleton<IRabbitMqSubscriber, RabbitMqSubscriber>();
+            builder.Services.AddHostedService<EntityCreatedSubscriber>();
+
+
             var app = builder.Build();
 
-            using var scope = app.Services.CreateScope();
-
-            var services = scope.ServiceProvider;
-            try
+            using (var scope = app.Services.CreateScope())
             {
-                var context = services.GetRequiredService<SmartSyncDbContext>();
-                context.Database.Migrate();
-            }
-            catch (Exception ex)
-            {
-                var logger = services.GetRequiredService<ILogger<Program>>();
-                logger.LogError(ex, "Ocorreu um erro ao atualizar o banco de dados.");
+                var services = scope.ServiceProvider;
+                try
+                {
+                    var context = services.GetRequiredService<SmartSyncDbContext>();
+                    context.Database.Migrate();
+                }
+                catch (Exception ex)
+                {
+                    var logger = services.GetRequiredService<ILogger<Program>>();
+                    logger.LogError(ex, "Ocorreu um erro ao atualizar o banco de dados.");
+                }
             }
 
             if (app.Environment.IsDevelopment())
