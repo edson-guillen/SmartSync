@@ -3,7 +3,6 @@ using RabbitMQ.Client.Events;
 using SmartSync.Infraestructure.Messaging.Interfaces;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace SmartSync.Infraestructure.Messaging.Subscriber
@@ -17,29 +16,34 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
         private readonly RabbitMqOptions _options;
         private bool _running = false;
 
+        
+        private const string DlxExchangeName = "dlx_exchange";
+        private const string DlqQueueName = "dead_letter_queue";
+        private const string DlqRoutingKey = "dlq_routing_key";
+
         public RabbitMqSubscriber(RabbitMqOptions options)
         {
             _options = options;
             var factory = new ConnectionFactory { HostName = "localhost" };
-
-            //if (!string.IsNullOrWhiteSpace(options.ConnectionString))
-            //    factory.Uri = new Uri(options.ConnectionString);
-            //else
-            //{
-            //    factory.HostName = options.HostName;
-            //    factory.UserName = options.UserName;
-            //    factory.Password = options.Password;
-            //    factory.VirtualHost = options.VirtualHost;
-            //    factory.Port = options.Port;
-            //}
-
             _connection = factory.CreateConnection();
             _channel = _connection.CreateModel();
+
+            
+            _channel.ExchangeDeclare(DlxExchangeName, ExchangeType.Direct, durable: true);
+            _channel.QueueDeclare(DlqQueueName, durable: true, exclusive: false, autoDelete: false);
+            _channel.QueueBind(DlqQueueName, DlxExchangeName, DlqRoutingKey);
         }
 
         public void Subscribe<T>(string queue, Func<T, Task> onMessage)
         {
-            _channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+            
+            var mainQueueArgs = new Dictionary<string, object>
+            {
+                { "x-dead-letter-exchange", DlxExchangeName },
+                { "x-dead-letter-routing-key", DlqRoutingKey }
+            };
+
+            _channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false, arguments: mainQueueArgs);
             _handlers[queue] = onMessage;
         }
 
@@ -57,22 +61,34 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
                 {
                     var body = ea.Body.ToArray();
                     var json = Encoding.UTF8.GetString(body);
+
                     try
                     {
                         message = json;
                     }
                     catch (Exception ex)
                     {
-                        // Log do erro de deserialização
+                        
                         Console.WriteLine($"Erro ao deserializar mensagem da fila '{queue}': {ex.Message}");
-                        // Opcional: Nack ou rejeitar a mensagem
+                        
                         _channel.BasicNack(ea.DeliveryTag, false, false);
                         return;
                     }
-                    await (Task)handler.DynamicInvoke(message);
 
-                    _channel.BasicAck(deliveryTag: ea.DeliveryTag, multiple: false);
+                    try
+                    {
+                        await (Task)handler.DynamicInvoke(message);
+                        _channel.BasicAck(deliveryTag: ea.DeliveryTag, multiple: false);
+                    }
+                    catch (Exception ex)
+                    {
+                        
+                        Console.WriteLine($"Erro no processamento da mensagem da fila '{queue}': {ex.Message}");
+                        
+                        _channel.BasicNack(ea.DeliveryTag, false, false);
+                    }
                 };
+
                 _channel.BasicConsume(queue: queue, autoAck: false, consumer: consumer);
                 _consumers.Add(consumer);
             }
@@ -83,6 +99,7 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
             _running = false;
             foreach (var consumer in _consumers)
             {
+              
             }
         }
 
