@@ -12,11 +12,11 @@ namespace SmartSync.Infraestructure.Messaging.Publisher
     {
         private readonly IConnection _connection;
         private readonly IModel _channel;
-
-        private readonly string _mainExchange = "benny.main-exchange";
-        private readonly string _retryExchange = "benny.retry-exchange";
-        private readonly string _mainQueue = "benny";
-        private readonly string _retryQueue = "benny.retry";
+        private readonly string _mainExchange = "smartsync.main-exchange";
+        private readonly string _retryExchange = "smartsync.retry-exchange";
+        private readonly string _mainQueue = "smartsync";
+        private readonly string _retryQueue = "smartsync.retry";
+        public IModel Channel => _channel;
 
         public RabbitMqPublisher(RabbitMqOptions options)
         {
@@ -61,18 +61,36 @@ namespace SmartSync.Infraestructure.Messaging.Publisher
             var properties = _channel.CreateBasicProperties();
             properties.Persistent = true;
 
-            // Usa a exchange principal fixa
+            // Publica diretamente na fila desejada
             _channel.BasicPublish(
-                exchange: _mainExchange,
-                routingKey: "",
+                exchange: "", // exchange padrão do RabbitMQ
+                routingKey: queue, // nome da fila
                 basicProperties: properties,
                 body: body
             );
 
-            // Espera confirmação de que a mensagem foi publicada
             _channel.WaitForConfirmsOrDie(new TimeSpan(0, 0, 5));
 
             return Task.CompletedTask;
+        }
+
+        public async Task PublishToFanoutAsync<T>(string exchange, T message)
+        {
+            var json = JsonSerializer.Serialize(message);
+            var body = Encoding.UTF8.GetBytes(json);
+
+            _channel.ExchangeDeclare(exchange, ExchangeType.Fanout, durable: true);
+
+            var props = _channel.CreateBasicProperties();
+            props.Persistent = true;
+
+            _channel.BasicPublish(
+                exchange: exchange,
+                routingKey: "", 
+                basicProperties: props,
+                body: body
+            );
+            await Task.CompletedTask;
         }
 
         public void Dispose()

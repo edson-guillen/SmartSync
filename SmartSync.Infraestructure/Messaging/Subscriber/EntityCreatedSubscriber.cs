@@ -6,6 +6,7 @@ using SmartSync.Infraestructure.Messaging.Interfaces;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using SmartSync.Infraestructure.Persistence.Interfaces;
 
 namespace SmartSync.Infraestructure.Messaging.Subscriber
 {
@@ -20,13 +21,12 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _subscriber.Subscribe<EntityCreatedEvent<BaseModel>>("entity.created", async (evt) =>
+            _subscriber.Subscribe<EntityCreatedEvent<BaseModel>>("smartsync", async (evt) =>
             {
-                Console.WriteLine($"Entidade criada: {evt.Entity.Id}");
-
-                // Simula falha proposital para testar retry
-                // Remova o throw depois que testar!
-                throw new Exception("Erro forçado pra testar retry");
+                if (evt?.Entity != null)
+                    Console.WriteLine($"Entidade criada: {evt.Entity.Id}");
+                else
+                    Console.WriteLine("Mensagem recebida sem entidade válida.");
             });
 
             _subscriber.Start();

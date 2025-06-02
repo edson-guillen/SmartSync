@@ -10,8 +10,5 @@ namespace SmartSync.Domain.Entities
     public class TipoDispositivo : BaseModel
     {
         public required string Nome { get; set; }
-
-        [NotMapped]
-        public ICollection<string>? Acoes { get; set; }
     }
 }

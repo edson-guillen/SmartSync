@@ -63,22 +63,13 @@ namespace SmartSync.API
                 });
             });
 
-            // RabbitMQ - CloudAMQP
-            builder.Services.AddSingleton<RabbitMqOptions>(sp =>
-            {
-                return new RabbitMqOptions
-                {
-                    ConnectionString = "amqps://exvqgpel:ayuiNwoAOPHHBHDcdt-gIPobmbnlmE4c@jackal.rmq.cloudamqp.com/exvqgpel"
-                };
-            });
-
+            builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMq"));
+            builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value);
             builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
             builder.Services.AddSingleton<IRabbitMqSubscriber, RabbitMqSubscriber>();
             builder.Services.AddHostedService<EntityCreatedSubscriber>();
-            builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMq"));
+            builder.Services.AddHostedService<DispositivoCommandSubscriber>();
             builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value);
-
-
 
             var app = builder.Build();
 

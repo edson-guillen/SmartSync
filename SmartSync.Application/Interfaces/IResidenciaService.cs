@@ -9,5 +9,7 @@ namespace SmartSync.Application.Interfaces
 {
     public interface IResidenciaService : IBaseService<Residencia>
     {
+        Task LigarTodosDispositivos(Guid residenciaId);
+        Task DesligarTodosDispositivos(Guid residenciaId);
     }
 }

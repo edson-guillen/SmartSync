@@ -15,6 +15,7 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
         private readonly List<EventingBasicConsumer> _consumers = new();
         private readonly RabbitMqOptions _options;
         private bool _running = false;
+        public IModel Channel => _channel;
 
         public RabbitMqSubscriber(RabbitMqOptions options)
         {
@@ -61,6 +62,19 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
             };
         }
 
+        public void SubscribeToFanout<T>(string exchange, string queue, Func<T, Task> onMessage)
+        {
+            _channel.ExchangeDeclare(exchange, ExchangeType.Fanout, durable: true);
+            _channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+            _channel.QueueBind(queue, exchange, routingKey: "");
+
+            _handlers[queue] = async (json) =>
+            {
+                var message = JsonSerializer.Deserialize<T>(json);
+                await onMessage(message);
+            };
+        }
+
         public void Start(int maxRetries = 3)
         {
             _running = true;
@@ -96,7 +110,6 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
                         }
                         else if (raw != null)
                         {
-                            // Tenta converter direto se for string ou outro tipo
                             int.TryParse(raw.ToString(), out retryCount);
                         }
                     }
@@ -121,9 +134,9 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
                         var retryProps = _channel.CreateBasicProperties();
                         retryProps.Persistent = true;
                         retryProps.Headers = new Dictionary<string, object>
-        {
-            { "x-retries", (retryCount + 1).ToString() }
-        };
+                        {
+                            { "x-retries", (retryCount + 1).ToString() }
+                        };
 
                         _channel.BasicPublish(
                             exchange: $"{queue}.retry-exchange",
