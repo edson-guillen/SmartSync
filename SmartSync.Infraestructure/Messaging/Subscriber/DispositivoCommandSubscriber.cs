@@ -1,12 +1,14 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 using SmartSync.Domain.Entities;
 using SmartSync.Domain.Events;
-using SmartSync.Infraestructure.Messaging.Interfaces;
 using SmartSync.Infraestructure.Persistence.Interfaces;
 using System;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,14 +16,14 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
 {
     public class DispositivoCommandSubscriber : BackgroundService
     {
-        private readonly IRabbitMqSubscriber _subscriber;
+        private readonly IModel _channel;
         private readonly IServiceScopeFactory _scopeFactory;
 
         public DispositivoCommandSubscriber(
-            IRabbitMqSubscriber subscriber,
+            IModel channel,
             IServiceScopeFactory scopeFactory)
         {
-            _subscriber = subscriber;
+            _channel = channel;
             _scopeFactory = scopeFactory;
         }
 
@@ -29,35 +31,20 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
         {
             using var scope = _scopeFactory.CreateScope();
             var dispositivoRepository = scope.ServiceProvider.GetRequiredService<IDispositivoRepository>();
-            var comodoRepository = scope.ServiceProvider.GetRequiredService<IComodoRepository>();
-            var residenciaRepository = scope.ServiceProvider.GetRequiredService<IResidenciaRepository>();
 
-            // Declara e faz bind das exchanges de residências para cômodos
-            var residencias = residenciaRepository.Get().ToList();
-            foreach (var residencia in residencias)
-            {
-                string residenciaExchange = $"residencia.{residencia.Id}";
-                var channel = (_subscriber as SmartSync.Infraestructure.Messaging.Subscriber.RabbitMqSubscriber)?.Channel;
-                channel?.ExchangeDeclare(residenciaExchange, ExchangeType.Fanout, durable: true);
-
-                var comodosDaResidencia = comodoRepository.Get(c => c.ResidenciaId == residencia.Id).ToList();
-                foreach (var comodo in comodosDaResidencia)
-                {
-                    string comodoExchange = $"comodo.{comodo.Id}";
-                    channel?.ExchangeDeclare(comodoExchange, ExchangeType.Fanout, durable: true);
-                    channel?.ExchangeBind(destination: comodoExchange, source: residenciaExchange, routingKey: "");
-                }
-            }
-
-            // Não declare nem faça bind manual das filas replicator aqui!
-
-            // Inscreve em todas as filas de dispositivos existentes
             var dispositivos = dispositivoRepository.Get().ToList();
             foreach (var dispositivo in dispositivos)
             {
                 var queue = $"dispositivo.{dispositivo.Id}";
-                _subscriber.Subscribe<AcaoCommand>(queue, async (msg) =>
+
+                // Não declare a fila novamente, apenas consuma
+                var consumer = new EventingBasicConsumer(_channel);
+                consumer.Received += async (model, ea) =>
                 {
+                    var body = ea.Body.ToArray();
+                    var json = Encoding.UTF8.GetString(body);
+                    var msg = JsonSerializer.Deserialize<AcaoCommand>(json);
+
                     using var innerScope = _scopeFactory.CreateScope();
                     var repo = innerScope.ServiceProvider.GetRequiredService<IDispositivoRepository>();
 
@@ -78,11 +65,15 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
                     {
                         Console.WriteLine($"[Dispositivo {dispositivo.Id}] Ação desconhecida: {acao}");
                     }
-                });
+
+                    _channel.BasicAck(ea.DeliveryTag, false);
+                };
+
+                _channel.BasicConsume(queue: queue, autoAck: false, consumer: consumer);
             }
 
-            _subscriber.Start();
             return Task.CompletedTask;
         }
+
     }
 }

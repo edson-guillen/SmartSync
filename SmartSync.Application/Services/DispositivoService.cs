@@ -41,6 +41,7 @@ namespace SmartSync.Application.Services
                 // Bind do cômodo para residência
                 channel.ExchangeBind(destination: comodoExchange, source: residenciaExchange, routingKey: "");
                 // Bind da fila do dispositivo para o exchange do cômodo
+                channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
                 channel.QueueBind(queue, comodoExchange, routingKey: "");
             }
 

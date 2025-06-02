@@ -10,6 +10,7 @@ using SmartSync.Infraestructure.Messaging.Publisher;
 using SmartSync.Infraestructure.Messaging.Subscriber;
 using SmartSync.Infraestructure.Messaging;
 using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
 
 namespace SmartSync.API
 {
@@ -62,8 +63,15 @@ namespace SmartSync.API
                         .AllowAnyMethod();
                 });
             });
-
             builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMq"));
+
+            builder.Services.AddSingleton<IModel>(sp =>
+            {
+                var options = sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
+                var factory = new ConnectionFactory { Uri = new Uri(options.ConnectionString) };
+                var connection = factory.CreateConnection();
+                return connection.CreateModel();
+            });
             builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value);
             builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
             builder.Services.AddSingleton<IRabbitMqSubscriber, RabbitMqSubscriber>();
