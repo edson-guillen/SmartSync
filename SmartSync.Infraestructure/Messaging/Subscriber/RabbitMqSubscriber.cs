@@ -34,10 +34,17 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
             var retryQueue = $"{queue}.retry";
             var retryExchange = $"{queue}.retry-exchange";
             var mainExchange = $"{queue}.main-exchange";
+            var dlqQueue = $"{queue}.dlq";
+            var dlqExchange = $"{queue}.dlq-exchange";
 
             // Exchanges
             _channel.ExchangeDeclare(mainExchange, ExchangeType.Direct, durable: true);
             _channel.ExchangeDeclare(retryExchange, ExchangeType.Direct, durable: true);
+            _channel.ExchangeDeclare(dlqExchange, ExchangeType.Direct, durable: true);
+
+            // DLQ
+            _channel.QueueDeclare(dlqQueue, durable: true, exclusive: false, autoDelete: false);
+            _channel.QueueBind(dlqQueue, dlqExchange, routingKey: "");
 
             // Fila principal
             _channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false, arguments: new Dictionary<string, object>
@@ -125,8 +132,22 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
 
                         if (retryCount >= maxRetries)
                         {
-                            Console.WriteLine($"[!] Máximo de {maxRetries} tentativas atingido. Descartando mensagem.");
-                            _channel.BasicNack(ea.DeliveryTag, false, false); // Dropa
+                            Console.WriteLine($"[!] Máximo de {maxRetries} tentativas atingido. Enviando mensagem para DLQ.");
+
+                            // Publica na DLQ
+                            var dlqExchange = $"{queue}.dlq-exchange";
+                            var dlqProps = _channel.CreateBasicProperties();
+                            dlqProps.Persistent = true;
+                            dlqProps.Headers = ea.BasicProperties?.Headers;
+
+                            _channel.BasicPublish(
+                                exchange: dlqExchange,
+                                routingKey: "",
+                                basicProperties: dlqProps,
+                                body: body
+                            );
+
+                            _channel.BasicAck(ea.DeliveryTag, false); // Marca como processada
                             return;
                         }
 

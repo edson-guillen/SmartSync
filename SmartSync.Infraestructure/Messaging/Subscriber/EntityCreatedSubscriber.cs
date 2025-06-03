@@ -23,6 +23,9 @@ namespace SmartSync.Infraestructure.Messaging.Subscriber
         {
             _subscriber.Subscribe<EntityCreatedEvent<BaseModel>>("smartsync", async (evt) =>
             {
+                /*
+                throw new Exception("Erro proposital para testar a DLQ!");
+                */
                 if (evt?.Entity != null)
                     Console.WriteLine($"Entidade criada: {evt.Entity.Id}");
                 else
