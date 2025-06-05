@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartsync-api
+    ports:
+      - "5000:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=db;Database=smartsync;Username=postgres;Password=postgres;Port=5432
+      - RabbitMq__ConnectionString=amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - db
+      - rabbitmq
+    networks:
+      - smartsync-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: smartsync-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=smartsync
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - smartsync-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: smartsync-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - smartsync-network
+
+networks:
+  smartsync-network:
+    name: smartsync-network
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: smartsync-postgres-data
+  rabbitmq_data:
+    name: smartsync-rabbitmq-data

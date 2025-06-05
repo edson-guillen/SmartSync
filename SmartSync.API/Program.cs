@@ -11,6 +11,10 @@ using SmartSync.Infraestructure.Messaging.Subscriber;
 using SmartSync.Infraestructure.Messaging;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using SmartSync.API.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using System.Text.Json;
 
 namespace SmartSync.API
 {
@@ -59,6 +63,11 @@ namespace SmartSync.API
             builder.Services.ConfigureServices();
 
             builder.Services.AddSwaggerGen();
+
+            builder.Services.AddHealthChecks()
+                .AddCheck<DatabaseHealthCheck>("database")
+                .AddCheck<RabbitMqHealthCheck>("rabbitmq");
+
 
             builder.Services.AddCors(options =>
             {
@@ -113,6 +122,36 @@ namespace SmartSync.API
             app.UseCors("CorsPolicy");
 
             app.UseAuthorization();
+
+            app.MapHealthChecks("/health", new HealthCheckOptions
+            {
+                ResponseWriter = async (context, report) =>
+                {
+                    var response = new HealthCheckResponse
+                    {
+                        Status = report.Status.ToString(),
+                        Version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0",
+                        Checks = report.Entries.ToDictionary(
+                            e => e.Key,
+                            e => new
+                            {
+                                Status = e.Value.Status.ToString(),
+                                Description = e.Value.Description,
+                                Duration = e.Value.Duration
+                            } as object
+                        ),
+                        Duration = report.TotalDuration,
+                        Timestamp = DateTime.UtcNow
+                    };
+
+                    context.Response.ContentType = "application/json";
+                    await JsonSerializer.SerializeAsync(context.Response.Body, response, new JsonSerializerOptions
+                    {
+                        WriteIndented = true,
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+                }
+            });
 
             app.MapControllers();
 

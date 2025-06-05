@@ -1,0 +1,24 @@
+# Binários e objetos
+**/bin/
+**/obj/
+
+# Arquivos de desenvolvimento
+**/.vs/
+**/.vscode/
+**/.idea/
+
+# Arquivos de ambiente e configuração local
+**/*.env
+**/appsettings.Development.json
+
+# Arquivos do Git
+**/.git/
+**/.gitignore
+
+# Arquivos Docker
+**/Dockerfile
+**/docker-compose.yml
+
+# Outros
+**/*.md
+**/*.user
