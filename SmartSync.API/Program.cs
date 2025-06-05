@@ -15,6 +15,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using SmartSync.API.HealthChecks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using System.Text.Json;
+using Microsoft.OpenApi.Models;
+using SmartSync.API.Middleware;
 
 namespace SmartSync.API
 {
@@ -62,7 +64,15 @@ namespace SmartSync.API
             builder.Services.ConfigureRepositories();
             builder.Services.ConfigureServices();
 
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "SmartSync API",
+                    Version = "v1",
+                    Description = "API para o sistema SmartSync"
+                });
+            });
 
             builder.Services.AddHealthChecks()
                 .AddCheck<DatabaseHealthCheck>("database")
@@ -116,10 +126,16 @@ namespace SmartSync.API
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
-                app.UseSwaggerUI();
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartSync API v1");
+                    c.RoutePrefix = "swagger";
+                });
             }
 
             app.UseCors("CorsPolicy");
+
+            app.UseMetrics();
 
             app.UseAuthorization();
 
