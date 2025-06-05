@@ -70,7 +70,12 @@ namespace SmartSync.API
                 {
                     Title = "SmartSync API",
                     Version = "v1",
-                    Description = "API para o sistema SmartSync"
+                    Description = "API para o sistema SmartSync",
+                    Contact = new OpenApiContact
+                    {
+                        Name = "Edson Guillen",
+                        Url = new Uri("https://github.com/edson-guillen")
+                    }
                 });
             });
 
@@ -125,13 +130,15 @@ namespace SmartSync.API
 
             if (app.Environment.IsDevelopment())
             {
-                app.UseSwagger();
-                app.UseSwaggerUI(c =>
-                {
-                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartSync API v1");
-                    c.RoutePrefix = "swagger";
-                });
+                app.UseDeveloperExceptionPage();
             }
+
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "SmartSync API v1");
+                c.RoutePrefix = string.Empty;
+            });
 
             app.UseCors("CorsPolicy");
 
