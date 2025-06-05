@@ -21,6 +21,15 @@ namespace SmartSync.Infraestructure.Persistence.Context
                 .Build();
 
             var optionsBuilder = new DbContextOptionsBuilder<SmartSyncDbContext>();
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+
+            optionsBuilder.UseNpgsql(connectionString, npgsqlOptions =>
+            {
+                npgsqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 3,
+                    maxRetryDelay: TimeSpan.FromSeconds(30),
+                    errorCodesToAdd: null);
+            });
 
             return new SmartSyncDbContext(optionsBuilder.Options, configuration);
         }

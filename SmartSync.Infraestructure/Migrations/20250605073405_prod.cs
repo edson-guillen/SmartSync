@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SmartSync.Infraestructure.Migrations
 {
     /// <inheritdoc />
-    public partial class v1initial : Migration
+    public partial class prod : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -15,10 +15,9 @@ namespace SmartSync.Infraestructure.Migrations
                 name: "TipoDispositivos",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Nome = table.Column<string>(type: "TEXT", nullable: false),
-                    Acoes = table.Column<string>(type: "TEXT", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Nome = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -29,10 +28,10 @@ namespace SmartSync.Infraestructure.Migrations
                 name: "Usuarios",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Nome = table.Column<string>(type: "TEXT", nullable: false),
-                    Email = table.Column<string>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Nome = table.Column<string>(type: "text", nullable: false),
+                    Email = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -43,10 +42,10 @@ namespace SmartSync.Infraestructure.Migrations
                 name: "Residencias",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Endereco = table.Column<string>(type: "TEXT", nullable: false),
-                    UsuarioId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Endereco = table.Column<string>(type: "text", nullable: false),
+                    UsuarioId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -63,10 +62,10 @@ namespace SmartSync.Infraestructure.Migrations
                 name: "Comodos",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Nome = table.Column<string>(type: "TEXT", nullable: false),
-                    ResidenciaId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Nome = table.Column<string>(type: "text", nullable: false),
+                    ResidenciaId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -83,11 +82,12 @@ namespace SmartSync.Infraestructure.Migrations
                 name: "Dispositivos",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    Nome = table.Column<string>(type: "TEXT", nullable: false),
-                    TipoDispositivoId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    ComodoId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Nome = table.Column<string>(type: "text", nullable: false),
+                    TipoDispositivoId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ComodoId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Ligado = table.Column<bool>(type: "boolean", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {

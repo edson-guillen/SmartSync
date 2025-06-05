@@ -42,6 +42,14 @@ namespace SmartSync.API
 
             builder.Services.AddDbContext<SmartSyncDbContext>(options =>
             {
+                var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+                options.UseNpgsql(connectionString, npgsqlOptions =>
+                {
+                    npgsqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 3,
+                        maxRetryDelay: TimeSpan.FromSeconds(30),
+                        errorCodesToAdd: null);
+                });
 #if DEBUG
                 options.EnableSensitiveDataLogging();
 #endif
