@@ -11,6 +11,19 @@ namespace SmartSync.Domain.Entities
         public required string Nome { get; set; }
         public Guid TipoDispositivoId { get; set; }
         public Guid ComodoId { get; set; }
+        public bool Ligado { get; set; } = false;
         public TipoDispositivo? TipoDispositivo { get; set; }
+
+        public bool Ligar()
+        {
+            Ligado = true;
+            return Ligado;
+        }
+
+        public bool Desligar()
+        {
+            Ligado = false;
+            return Ligado;
+        }
     }
 }

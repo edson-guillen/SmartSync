@@ -27,8 +27,7 @@ namespace SmartSync.Application.Services
             var result = await _repostitory.Insert(model);
             if (result > 0)
             {
-                // Publique um evento para a fila (por exemplo, "entity.created")
-                await _publisher.PublishAsync("entity.created", new EntityCreatedEvent<TModel>(model));
+                await _publisher.PublishAsync("smartsync", new EntityCreatedEvent<TModel>(model));
             }
             return result;
         }

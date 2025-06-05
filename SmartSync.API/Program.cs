@@ -9,6 +9,8 @@ using SmartSync.Infraestructure.Messaging.Interfaces;
 using SmartSync.Infraestructure.Messaging.Publisher;
 using SmartSync.Infraestructure.Messaging.Subscriber;
 using SmartSync.Infraestructure.Messaging;
+using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
 
 namespace SmartSync.API
 {
@@ -61,20 +63,21 @@ namespace SmartSync.API
                         .AllowAnyMethod();
                 });
             });
+            builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMq"));
 
-            // RabbitMQ - CloudAMQP
-            builder.Services.AddSingleton<RabbitMqOptions>(sp =>
+            builder.Services.AddSingleton<IModel>(sp =>
             {
-                var configuration = sp.GetRequiredService<IConfiguration>();
-                return new RabbitMqOptions
-                {
-                    ConnectionString = "amqps://jzbrpolr:sEJrOHF_O46SJenrAhxBvKbL-IZwvNPP@jackal.rmq.cloudamqp.com/jzbrpolr"
-                };
+                var options = sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value;
+                var factory = new ConnectionFactory { Uri = new Uri(options.ConnectionString) };
+                var connection = factory.CreateConnection();
+                return connection.CreateModel();
             });
+            builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value);
             builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
             builder.Services.AddSingleton<IRabbitMqSubscriber, RabbitMqSubscriber>();
             builder.Services.AddHostedService<EntityCreatedSubscriber>();
-
+            builder.Services.AddHostedService<DispositivoCommandSubscriber>();
+            builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<RabbitMqOptions>>().Value);
 
             var app = builder.Build();
 

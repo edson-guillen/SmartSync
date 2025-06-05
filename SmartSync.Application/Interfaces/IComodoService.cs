@@ -9,5 +9,7 @@ namespace SmartSync.Application.Interfaces
 {
     public interface IComodoService : IBaseService<Comodo>
     {
+        Task LigarTodosDispositivos(Guid comodoId);
+        Task DesligarTodosDispositivos(Guid comodoId);
     }
 }
